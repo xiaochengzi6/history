@@ -89,6 +89,6 @@ function createEvent(){
 
 还有前面说的三个构造函数，虽然大同小异但是还是值得大家去细细看一下，我这里就不介绍差异点了。
 
-我的阅读的 history 源码：
+我的阅读的[history 源码](https://github.com/xiaochengzi6/history/blob/main/history%E6%BA%90%E7%A0%81.ts)
 
 当然你在看源码之前最后自己先使用一遍这里能理解的更加透彻
