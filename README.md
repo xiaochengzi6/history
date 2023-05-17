@@ -89,7 +89,7 @@ function createEvent(){
 
 还有前面说的三个构造函数，虽然大同小异但是还是值得大家去细细看一下，我这里就不介绍差异点了。
 
-我的阅读的 history 源码：
+我阅读的[history源码有部分给了代码注释](https://github.com/xiaochengzi6/history/blob/main/history%E6%BA%90%E7%A0%81.ts)
 
 当然你在看源码之前最后自己先使用一遍这里能理解的更加透彻
 
@@ -255,3 +255,7 @@ function createEvents(){
 在使用 `push` 或 `replace`会触发 `popstate`事件，通过监听函数 `listen` 进行监听，也就说整个 history 的流程就是通过改变 `url` 在改变之前触发 `blocker` 监听函数 去做一些处理如：存储数据、拒绝跳转等，在`url`跳转之后开始调用 `listen`监听函数，触发监听函数可以让组件以此来进行更新。
 
 `push` 和 `replace` 函数的原理是使用了 `window.history` 的 `pushState()` 和`replceState()`函数。使用者这两个函数改变 url 会发出`befounload`事件，从而让 block 监听函数调用，改变url后会触发 `popstate` 事件，监听到url 发生改变从而触发 `listen` 监听函数。
+
+
+
+在看源码之前希望能先使用一遍这里能理解的更加透彻
