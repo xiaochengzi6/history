@@ -92,3 +92,166 @@ function createEvent(){
 我的阅读的 history 源码：
 
 当然你在看源码之前最后自己先使用一遍这里能理解的更加透彻
+
+### block 
+block 函数的执行顺序是在即将跳转 url 从而抛出一些事件或者做出一些动作从而阻止 url 发生的改变或者响应
+
+这个函数主要是去监听事件 `beforeunload`
+~~~js
+ function block(blocker) {
+      let unblock = blockers.push(blocker);
+
+      if (blockers.length === 1) {
+        // 当 blocker 监听器只有一个的时候添加 onbeforeunload 事件
+        // 页面刷新时，页面关闭时都会触发这个事件 
+        window.addEventListener('beforeunload', promptBeforeUnload);
+      }
+
+      return function () {
+        // 返回一个函数，调用该函数可以直接去跳转到下一个url
+        unblock();
+
+        // Remove the beforeunload listener so the document may
+        // still be salvageable in the pagehide event.
+        // See https://html.spec.whatwg.org/#unloading-documents
+        if (!blockers.length) {
+          window.removeEventListener('beforeunload', promptBeforeUnload);
+        }
+      };
+    }
+
+
+function promptBeforeUnload(event: BeforeUnloadEvent) {
+  // 取消事件的默认行为
+  event.preventDefault();
+  // Chrome (and legacy IE) requires returnValue to be set.
+  event.returnValue = "";
+}
+~~~
+
+调用 `history.block` 充当路由守卫的角色
+
+参考：https://github.com/remix-run/history/blob/dev/docs/api-reference.md
+
+
+### listen 监听函数
+
+`history.listen` 函数开始监听位置变化，并在发生变化时使用Update调用给定的回调函数。
+
+~~~js
+// 存放 监听函数
+const listeners = []
+
+function listen(listener) {
+  return listeners.push(listener);
+},
+~~~
+
+调用监听函数会触发会保存在函数中，若存在 url 发生变化，代码去监听 `popstate` 事件
+
+> popstate 事件只会在浏览器某些行为下触发，比如点击后退按钮（或者在 JavaScript 中调用 history.back() 方法）。即，在同一文档的两个历史记录条目之间导航会触发该事件。
+>
+> 参考：https://developer.mozilla.org/zh-CN/docs/Web/API/Window/popstate_event
+
+在`Browser`模式下会使用 `createBrowserHistory`函数创建 `history` 函数改函数返回
+~~~js
+history = {
+  get action() {},
+  get location() {},
+  createHref,
+  push,
+  replace,
+  go,
+  back() {},
+  forward() {},
+  listen(listener) {},
+  block(blocker) {};
+};
+~~~
+可以发现传入 url 去跳转的方法有两种 `push` 和 `replace` 
+
+1. 使用 push 的核心原理就是调用了 `history.pushState()` 去创建的新历史条目相关联。每当用户导航到新的 state，都会触发 popstate 事件
+~~~js
+const globalHistory = window.history 
+const nextAction = 'PUSH'
+
+function push (to, state){
+    let [historyState, url] = getHistoryStateAndUrl(nextLocation, index + 1);
+    globalHistory.pushState(historyState, "", url);
+    applyTx(nextAction);
+}
+
+function getHistoryStateAndUrl(
+    nextLocation: Location,
+    index: number
+  ): [HistoryState, string] {
+    return [
+      {
+        usr: nextLocation.state,
+        key: nextLocation.key,
+        idx: index,
+      },
+      createHref(nextLocation),
+    ];
+}
+~~~
+
+2. `replace(to, state?)`函数使用新的 url 替换历史堆栈中的消息，使用这个函数可以触发 `popState`事件
+~~~js
+const globalHistory = window.history 
+const nextAction = 'REPLACE'
+function replace(to, state?){
+  let [historyState, url] = getHistoryStateAndUrl(nextLocation, index);
+
+    // TODO: Support forced reloading
+    globalHistory.replaceState(historyState, "", url);
+
+    applyTx(nextAction);
+}
+~~~
+
+~~~js
+// 这里主要是将 action 标识和 loction 传入后调用所有监听函数
+  function applyTx(nextAction: Action) {
+    action = nextAction;
+    [index, location] = getIndexAndLocation();
+
+    // 开始调用所有的监听事件
+    listeners.call({ action, location });
+  }
+~~~
+
+`listeners` 为发布订阅模式，通过 `push` 来添加订阅 `call` 发布事件
+~~~js
+const listeners = new createEvents()
+
+function createEvents(){
+  let handles = []
+
+  return {
+    get length() {
+      return handles.length
+    },
+   
+   // push 方法
+   push(fn){
+      handles.push(fn)
+      
+      return function (){
+        // 调用返回的函数后，会取消该监听函数
+        handles = handles.filter((handle) => handle !== fn)
+      }
+    }
+
+   // call 方法
+   call(arg) {
+     handles.forEach((fn) => fn && fn(arg))
+   }
+  }
+}
+~~~
+
+### 总结
+在使用 `push` 或 `replace`会触发 `popstate`事件，通过监听函数 `listen` 进行监听，也就说整个 history 的流程就是通过改变 `url` 在改变之前触发 `blocker` 监听函数 去做一些处理如：存储数据、拒绝跳转等，在`url`跳转之后开始调用 `listen`监听函数，触发监听函数可以让组件以此来进行更新。
+
+`push` 和 `replace` 函数的原理是使用了 `window.history` 的 `pushState()` 和`replceState()`函数。使用者这两个函数改变 url 会发出`befounload`事件，从而让 block 监听函数调用，改变url后会触发 `popstate` 事件，监听到url 发生改变从而触发 `listen` 监听函数。

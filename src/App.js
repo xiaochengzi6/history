@@ -12,7 +12,7 @@ function App() {
   // })
 
   // // 阻塞导航离开当前页面
-  // const unblock = h.block( tx => {
+  // const unblock = h.BLOCK( tx => {
   //   console.log('tx:', tx)
   //   if(window.confirm('确认离开？')){
   //     unblock()

@@ -854,10 +854,12 @@ export function createHashHistory(
       let unblock = blockers.push(blocker);
 
       if (blockers.length === 1) {
+        // 阻止跳转
         window.addEventListener(BeforeUnloadEventType, promptBeforeUnload);
       }
 
       return function () {
+        //  函数，调用该函数可以直接去跳转到下一个url
         unblock();
 
         // Remove the beforeunload listener so the document may
