@@ -136,18 +136,16 @@ function promptBeforeUnload(event: BeforeUnloadEvent) {
 
 ### listen 监听函数
 
-`history.listen` 函数开始监听位置变化，并在发生变化时使用Update调用给定的回调函数。
+`history.listen` 函数监听函数，在 url 发生变化调用所有的监听函数。
 
 ~~~js
 // 存放 监听函数
 const listeners = []
-
+// listener:(action, location) => void 
 function listen(listener) {
   return listeners.push(listener);
 },
 ~~~
-
-调用监听函数会触发会保存在函数中，若存在 url 发生变化，代码去监听 `popstate` 事件
 
 > popstate 事件只会在浏览器某些行为下触发，比如点击后退按钮（或者在 JavaScript 中调用 history.back() 方法）。即，在同一文档的两个历史记录条目之间导航会触发该事件。
 >
@@ -170,7 +168,7 @@ history = {
 ~~~
 可以发现传入 url 去跳转的方法有两种 `push` 和 `replace` 
 
-1. 使用 push 的核心原理就是调用了 `history.pushState()` 去创建的新历史条目相关联。每当用户导航到新的 state，都会触发 popstate 事件
+1. 使用 push 的核心原理就是调用了 `history.pushState()` 去创建的新历史条目相关联。
 ~~~js
 const globalHistory = window.history 
 const nextAction = 'PUSH'
@@ -196,20 +194,19 @@ function getHistoryStateAndUrl(
 }
 ~~~
 
-2. `replace(to, state?)`函数使用新的 url 替换历史堆栈中的消息，使用这个函数可以触发 `popState`事件
+1. `replace(to, state?)`函数使用新的 url 替换历史堆栈中的消息
 ~~~js
 const globalHistory = window.history 
 const nextAction = 'REPLACE'
 function replace(to, state?){
   let [historyState, url] = getHistoryStateAndUrl(nextLocation, index);
 
-    // TODO: Support forced reloading
-    globalHistory.replaceState(historyState, "", url);
+  globalHistory.replaceState(historyState, "", url);
 
-    applyTx(nextAction);
+  applyTx(nextAction);
 }
 ~~~
-
+使用 `pushState` or `replaceState` 都不会触发 `popstate`事件，但使用 `push` or `replace` 方法都会调用 `applyTx`函数。该函数会调用 `listeners` 监听函数队列，遍历每一个监听函数传入参数`{action, location}` 
 ~~~js
 // 这里主要是将 action 标识和 loction 传入后调用所有监听函数
   function applyTx(nextAction: Action) {
@@ -252,10 +249,6 @@ function createEvents(){
 ~~~
 
 ### 总结
-在使用 `push` 或 `replace`会触发 `popstate`事件，通过监听函数 `listen` 进行监听，也就说整个 history 的流程就是通过改变 `url` 在改变之前触发 `blocker` 监听函数 去做一些处理如：存储数据、拒绝跳转等，在`url`跳转之后开始调用 `listen`监听函数，触发监听函数可以让组件以此来进行更新。
+在使用 `push` 或 `replace`不会触发 `popstate`事件，但可以使用发布订阅模式使用 `listen` 监听 url 的改变，也就说整个 history 的流程就是通过改变 `url` 在改变之前触发 `blocker` 监听函数 去做一些处理如：存储数据、拒绝跳转等，在`url`跳转之后开始调用 `listen`监听函数，做一些更新之类的。
 
-`push` 和 `replace` 函数的原理是使用了 `window.history` 的 `pushState()` 和`replceState()`函数。使用者这两个函数改变 url 会发出`befounload`事件，从而让 block 监听函数调用，改变url后会触发 `popstate` 事件，监听到url 发生改变从而触发 `listen` 监听函数。
-
-
-
-在看源码之前希望能先使用一遍这里能理解的更加透彻
+`push` 和 `replace` 函数的原理是使用了 `window.history` 的 `pushState()` 和`replceState()`函数。使用者这两个函数改变 url 会发出`befounload`事件，从而让 block 监听函数调用，发生改变触发 `listen` 监听函数。
